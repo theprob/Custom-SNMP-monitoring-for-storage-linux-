@@ -97,7 +97,7 @@ if [ ${AROID[10]} == "1" ]; then
 		fi
 		
 		# check if its last oid
-		if [[ ${AROID[12]} -eq ${#drive_health[@]} ]] && [[ ${AROID[11]} -eq 5 ]]; then
+		if [[ ${AROID[12]} -eq ${#drive_health[@]} ]] && [[ ${AROID[11]} -eq 6 ]]; then
 			AROID[10]="2"
 			AROID[11]=""
 			AROID[12]=""
@@ -105,7 +105,7 @@ if [ ${AROID[10]} == "1" ]; then
 	fi
 	
 	case ${AROID[11]} in
-		"1")	# This is the subtree for device id check.
+		"1")	# This is the subtree for device id.
 			echo "$BASEOID.${AROID[10]}.${AROID[11]}.${AROID[12]}"
 			echo "string"
 			echo ${drive_health[((AROID[12]-1))]} | awk '{print $1}'	
@@ -117,7 +117,7 @@ if [ ${AROID[10]} == "1" ]; then
 			echo ${drive_health[((AROID[12]-1))]} | awk '{print $3}'
 			exit
 			;;
-		"3")	# This is the subtree for serial number check.
+		"3")	# This is the subtree for serial number.
 			echo "$BASEOID.${AROID[10]}.${AROID[11]}.${AROID[12]}"
 			echo "string"
 			echo ${drive_health[((AROID[12]-1))]} | awk '{print $6}'
@@ -129,8 +129,14 @@ if [ ${AROID[10]} == "1" ]; then
 			echo ${drive_health[((AROID[12]-1))]} | awk '{print $2}'
 			exit
 			;;
+		"5")	# This is the subtree for model.
+			echo "$BASEOID.${AROID[10]}.${AROID[11]}.${AROID[12]}"
+			echo "string"
+			echo ${drive_health[((AROID[12]-1))]} | awk '{print $5}'
+			exit
+			;;
 	esac		
-fi	
+fi		
 
 #	The is the Top level tree of drive statistics.
 if [ ${AROID[10]} == "2" ]; then	
