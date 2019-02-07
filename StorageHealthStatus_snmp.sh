@@ -1,12 +1,12 @@
 #!/bin/bash
-#	 _______________________________________________________________________________ 
+#	 _______________________________________________________________________________________
 #	/	Bash script to check LINUX based SAN/Storage systems' RAID and Disk health.	\
-#	|	Should be used via SNMP.                                                    |
-#	|																				|
-#	|	Created by Béla Tóth			                                            |
-#	|	Released:    2019.01.26.                                         			|
-#	|	Last modify: 2019.02.07.                                   					|
-#	\_______________________________________________________________________________/
+#	|	Should be used via SNMP.                                                    	|
+#	|											|									|
+#	|	Created by Béla Tóth			                                        |
+#	|	Released:    2019.01.26.                                         		|
+#	|	Last modify: 2019.02.07.                                   			|
+#	\_______________________________________________________________________________________/
 #
 # ez kell az snmpd.conf-ba: pass .1.3.6.1.4.1.8073.2.255   /bin/bash /opt/bin/StorageHealthStatus.sh
 #	SNMP service start: /etc/rc.d/rc.snmpd start
@@ -19,9 +19,9 @@
 FPATH="/opt/StorageHealthMonitoring"
 
 BASEOID=".1.3.6.1.4.1.8073.2.255"
-COMMAND="$1" 		# ez lehet: -n (walknál next) -g (sima GET) -s (set)
-RETURNOID="$2" 		# maga az OID
-IFS='.' read -r -a AROID <<< "$2" #	AROID = Array of Return OID
+COMMAND="" 		# ez lehet: -n (walknál next) -g (sima GET) -s (set)
+RETURNOID="" 		# maga az OID
+IFS='.' read -r -a AROID <<< "" #	AROID = Array of Return OID
 #	10th index is top level tree (e.g.: TREE_DRIVE)
 #	11th index is the device itself (e.g.: /dev/sda...)
 #	12th index is sub level tree (e.g.: TREE_DRIVE_ID)
@@ -114,31 +114,31 @@ if [ ${AROID[10]} == "1" ]; then
 		"1")	# This is the subtree for device id.
 			echo "$BASEOID.${AROID[10]}.${AROID[11]}.${AROID[12]}"
 			echo "string"
-			echo ${drive_health[((AROID[12]-1))]} | awk '{print $1}'	
+			echo ${drive_health[((AROID[12]-1))]} | awk '{print }'	
 			exit
 			;;
 		"2")	# This is the subtree for health check.
 			echo "$BASEOID.${AROID[10]}.${AROID[11]}.${AROID[12]}"
 			echo "integer"
-			echo ${drive_health[((AROID[12]-1))]} | awk '{print $3}'
+			echo ${drive_health[((AROID[12]-1))]} | awk '{print }'
 			exit
 			;;
 		"3")	# This is the subtree for serial number.
 			echo "$BASEOID.${AROID[10]}.${AROID[11]}.${AROID[12]}"
 			echo "string"
-			echo ${drive_health[((AROID[12]-1))]} | awk '{print $6}'
+			echo ${drive_health[((AROID[12]-1))]} | awk '{print }'
 			exit
 			;;
 		"4")	# This is the subtree for temperature check.
 			echo "$BASEOID.${AROID[10]}.${AROID[11]}.${AROID[12]}"
 			echo "integer"
-			echo ${drive_health[((AROID[12]-1))]} | awk '{print $2}'
+			echo ${drive_health[((AROID[12]-1))]} | awk '{print }'
 			exit
 			;;
 		"5")	# This is the subtree for model.
 			echo "$BASEOID.${AROID[10]}.${AROID[11]}.${AROID[12]}"
 			echo "string"
-			echo ${drive_health[((AROID[12]-1))]} | awk '{print $5}'
+			echo ${drive_health[((AROID[12]-1))]} | awk '{print }'
 			exit
 			;;
 	esac		
