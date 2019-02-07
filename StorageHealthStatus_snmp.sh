@@ -1,11 +1,11 @@
 #!/bin/bash
-#	 _______________________________________________________________________________________
+#	 _______________________________________________________________________________________ 
 #	/	Bash script to check LINUX based SAN/Storage systems' RAID and Disk health.	\
 #	|	Should be used via SNMP.                                                    	|
 #	|											|									|
 #	|	Created by Béla Tóth			                                        |
-#	|	Released:    2019.01.26.                                         		|
-#	|	Last modify: 2019.02.07.                                   			|
+#	|	Released:    2018.07.06.                                         		|
+#	|	Last modify: -                                           			|
 #	\_______________________________________________________________________________________/
 #
 # ez kell az snmpd.conf-ba: pass .1.3.6.1.4.1.8073.2.255   /bin/bash /opt/bin/StorageHealthStatus.sh
@@ -15,13 +15,10 @@
 #	SNMPWALK:			snmpwalk -v2c -O n -c public localhost .1.3.6.1.4.1.8073.2.255
 # Source global definitions
 
-#	Default folder path
-FPATH="/opt/StorageHealthMonitoring"
-
 BASEOID=".1.3.6.1.4.1.8073.2.255"
-COMMAND="" 		# ez lehet: -n (walknál next) -g (sima GET) -s (set)
-RETURNOID="" 		# maga az OID
-IFS='.' read -r -a AROID <<< "" #	AROID = Array of Return OID
+COMMAND="$1" 		# ez lehet: -n (walknál next) -g (sima GET) -s (set)
+RETURNOID="$2" 		# maga az OID
+IFS='.' read -r -a AROID <<< "$2" #	AROID = Array of Return OID
 #	10th index is top level tree (e.g.: TREE_DRIVE)
 #	11th index is the device itself (e.g.: /dev/sda...)
 #	12th index is sub level tree (e.g.: TREE_DRIVE_ID)
@@ -53,25 +50,22 @@ if [ ${AROID[10]} == "1" ]; then
 		exit
 	fi
 	
-	#   Checks if "hdscache" file's exists and create if not.
-	if [ ! -f "$FPATH/hdscache" ]; then
-		echo "File not found! Creating it..."
-		"$FPATH/HDSentinel" -solid | grep -v "?" > "$FPATH/hdscache";
-	fi
+	#   Check if no hdscache file exist and create
+	#   FIXME!
 	
 	    
 	#	Checking "hdscache" files age. The value is represented in seconds.
-	get_hdscache_age=($(($(date +%s) - $(date +%s -r "$FPATH/hdscache"))))
+	get_hdscache_age=($(($(date +%s) - $(date +%s -r "/opt/StorageHealthStatus/hdscache"))))
 
 	#	Checking the "hdscache" file if it's older than 12hours. If so, renews it.
 	#	43200 is 12hours in seconds.
 	if [ $get_hdscache_age -gt 43200 ]; then
 		#	cache HDSentinel's output.
-		"$FPATH/HDSentinel" -solid | grep -v "?" > "$FPATH/hdscache";
+		/opt/sbin/HDSentinel -solid | grep -v "?" > "/opt/StorageHealthStatus/hdscache";
 	fi
 
 	#	Loads the cached HDS stats from file into an array.
-	readarray drive_health < "$FPATH/hdscache"
+	readarray drive_health < /opt/StorageHealthStatus/hdscache
 	
 	# check if walk
 	if [[ $COMMAND == "-n" ]]; then
@@ -103,7 +97,7 @@ if [ ${AROID[10]} == "1" ]; then
 		fi
 		
 		# check if its last oid
-		if [[ ${AROID[12]} -eq ${#drive_health[@]} ]] && [[ ${AROID[11]} -eq 6 ]]; then
+		if [[ ${AROID[12]} -eq ${#drive_health[@]} ]] && [[ ${AROID[11]} -eq 5 ]]; then
 			AROID[10]="2"
 			AROID[11]=""
 			AROID[12]=""
@@ -111,34 +105,28 @@ if [ ${AROID[10]} == "1" ]; then
 	fi
 	
 	case ${AROID[11]} in
-		"1")	# This is the subtree for device id.
+		"1")	# This is the subtree for device id check.
 			echo "$BASEOID.${AROID[10]}.${AROID[11]}.${AROID[12]}"
 			echo "string"
-			echo ${drive_health[((AROID[12]-1))]} | awk '{print }'	
+			echo ${drive_health[((AROID[12]-1))]} | awk '{print $1}'	
 			exit
 			;;
 		"2")	# This is the subtree for health check.
 			echo "$BASEOID.${AROID[10]}.${AROID[11]}.${AROID[12]}"
 			echo "integer"
-			echo ${drive_health[((AROID[12]-1))]} | awk '{print }'
+			echo ${drive_health[((AROID[12]-1))]} | awk '{print $3}'
 			exit
 			;;
-		"3")	# This is the subtree for serial number.
+		"3")	# This is the subtree for serial number check.
 			echo "$BASEOID.${AROID[10]}.${AROID[11]}.${AROID[12]}"
 			echo "string"
-			echo ${drive_health[((AROID[12]-1))]} | awk '{print }'
+			echo ${drive_health[((AROID[12]-1))]} | awk '{print $6}'
 			exit
 			;;
 		"4")	# This is the subtree for temperature check.
 			echo "$BASEOID.${AROID[10]}.${AROID[11]}.${AROID[12]}"
 			echo "integer"
-			echo ${drive_health[((AROID[12]-1))]} | awk '{print }'
-			exit
-			;;
-		"5")	# This is the subtree for model.
-			echo "$BASEOID.${AROID[10]}.${AROID[11]}.${AROID[12]}"
-			echo "string"
-			echo ${drive_health[((AROID[12]-1))]} | awk '{print }'
+			echo ${drive_health[((AROID[12]-1))]} | awk '{print $2}'
 			exit
 			;;
 	esac		
