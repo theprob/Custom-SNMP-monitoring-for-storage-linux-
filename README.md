@@ -32,13 +32,13 @@ chmod +x StorageHealthStatus_snmp.sh
 chmod +x HDSentinel
 ``` 
 
-3.Install the SNMP packages:
+3.	Install the SNMP packages:
 
 ```
 CentOS: yum -y install net-snmp net-snmp-utils
 ```
 
-4.Modify the snmp.conf file as follows (/etc/snmp/snmpd.conf):
+4.	Modify the snmp.conf file as follows (/etc/snmp/snmpd.conf):
 
 ```
 view    systemview    included   .1.3.6.1.4.1.8073.2.255
@@ -53,7 +53,7 @@ uncomment:	rocommunity public  localhost
 comment:	rocommunity public  default    -V systemonly
 ```
 
-5.Restart the SNMP service.
+5.	Restart the SNMP service.
 On CentOS:
 ```
 service snmpd restart
@@ -66,7 +66,7 @@ SNMP status check:  	ps | grep snmp
 			ps | grep snmpd
 ```
     
-6.Check SeLinux status (you can skip this step, if using ESOS):
+6.	Check SeLinux status (you can skip this step, if using ESOS):
 ```
 getenforce
 ```
@@ -81,7 +81,7 @@ yum install policycoreutils-python
 semanage permissive -a snmpd_t
 ```
 		
-7.Configure firewall (you can skip this step, if using ESOS).
+7.	Configure firewall (you can skip this step, if using ESOS).
 
 Create config file for snmp service:
 ```
