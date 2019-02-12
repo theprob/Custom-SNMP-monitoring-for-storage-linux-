@@ -21,12 +21,12 @@ Just be sure to rename it to "HDSentinel".
 
 The below commands using yum, if you have othe package manager, please search for the proper commands to obtain the same settings!
 
-1.Create a folder under /opt/ and name it "StorageHealthMonitoring".
-(so you should get the following path: /opt/StorageHealthMonitoring)
+1.	Create a folder under /opt/ and name it "StorageHealthMonitoring".
+	(so you should get the following path: /opt/StorageHealthMonitoring)
 
-2.Copy the "StorageHealthStatus_snmp.sh" and "HDSentinel" files into previously created folder.
-(under /opt/StorageHealthMonitoring/)
-Make both files executable:
+2.	Copy the "StorageHealthStatus_snmp.sh" and "HDSentinel" files into previously created folder.
+	(under /opt/StorageHealthMonitoring/)
+	Make both files executable:
 ```    
 chmod +x StorageHealthStatus_snmp.sh
 chmod +x HDSentinel
