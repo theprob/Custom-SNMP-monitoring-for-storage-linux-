@@ -49,6 +49,10 @@ TREE_IOSTAT_wawait="12"	# This is the subtree for w_await.
 TREE_IOSTAT_svctm="13"	# This is the subtree for svctm.
 TREE_IOSTAT_util="14"	# This is the subtree for %util.
 
+TREE_RAID="3"			# Top level tree for RAID stats.
+TREE_RAID_ID="1"		# This is the subtree for RAID id.
+TREE_RAID_HEALTH="2"	# This is the subtree for health check.
+
 
 #	Initial check. If the BASEOID is not within the RETURNOID, script running halts.
 if [[ $RETURNOID != *"$BASEOID"* ]]; then
@@ -168,6 +172,7 @@ if [ ${AROID[10]} == $TREE_IOSTAT ]; then
 
 	#	Create/Update the iostate cache file.
 	iostat -mxd | grep sd > "$FPATH/iostatcache";
+
 
 	# #   Checks if "iostatcache" file's exists and create if not.
 	# if [ ! -f "$FPATH/iostatcache" ]; then
@@ -310,3 +315,65 @@ if [ ${AROID[10]} == $TREE_IOSTAT ]; then
 			;;
 	esac
 fi
+
+#	The is the Top level tree of RAID statistics.
+if [ ${AROID[10]} == $TREE_RAID ]; then
+	#	If illegal oid given... exit.
+	if [ ! -z ${AROID[13]} ]; then
+		exit
+	fi
+
+	#	Create/Update the mdadm cache file.
+	cat /etc/mdadm.conf | awk '{print $2}' > "$FPATH/mdadmcache";
+
+	#	Loads the cached mdadm stats from file into an array.
+	readarray mdadmcache < "$FPATH/iostatcache"
+
+	# check if walk
+	if [[ $COMMAND == "-n" ]]; then
+
+		#	Checking if it's the 1st subtree.
+		if [ -z ${AROID[11]} ]; then
+			AROID[11]="1"
+		fi
+
+		#	Increments the OIDs AROID[11]
+		#	${#mdadmcache[@]} = number of elements
+		if [[ ${AROID[12]} -eq ${#mdadmcache[@]} ]]; then
+			((AROID[11]++))
+			AROID[12]="0"
+		fi
+
+		#	Initiate snmp walking and initialize the first element.
+		if [ -z "${AROID[12]}" ]; then
+			AROID[12]="0"
+		fi
+
+		#	Increments the OIDs (AROID[12])
+		if [ ${AROID[12]} -lt ${#mdadmcache[@]} ];then
+			((AROID[12]++))
+		fi
+
+		# # check if its last oid
+		# if [[ ${AROID[12]} -eq ${#mdadmcache[@]} ]] && [[ ${AROID[11]} -eq 14 ]]; then
+			# AROID[10]="2"
+			# AROID[11]=""
+			# AROID[12]=""
+		# fi
+	fi
+
+	case ${AROID[11]} in
+		$TREE_RAID_ID )	# This is the subtree for RAID id.
+			echo "$BASEOID.${AROID[10]}.${AROID[11]}.${AROID[12]}"
+			echo "string"
+			echo ${mdadmcache[((AROID[12]-1))]} | awk '{print $1}'
+			exit
+			;;
+		$TREE_RAID_HEALTH )	# This is the subtree for RAID health.
+			echo "$BASEOID.${AROID[10]}.${AROID[11]}.${AROID[12]}"
+			echo "string"
+			echo ${mdadmcache[((AROID[12]-1))]} | awk '{print $2}'
+			exit
+			;;
+	esac
+fi	
