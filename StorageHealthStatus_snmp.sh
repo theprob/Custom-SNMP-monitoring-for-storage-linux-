@@ -21,6 +21,7 @@ FPATH="/opt/StorageHealthMonitoring"
 BASEOID=".1.3.6.1.4.1.8073.2.255"
 COMMAND="$1" 		# ez lehet: -n (walknál next) -g (sima GET) -s (set)
 RETURNOID="$2" 		# maga az OID
+ISWALKING=false
 IFS='.' read -r -a AROID <<< "$2" #	AROID = Array of Return OID
 #	10th index is top level tree (e.g.: TREE_DRIVE)
 #	11th index is the device itself (e.g.: /dev/sda...)
@@ -56,13 +57,13 @@ TREE_RAID_HEALTH="2"	# This is the subtree for health check.
 
 #	Initial check. If the BASEOID is not within the RETURNOID, script running halts.
 if [[ $RETURNOID != *"$BASEOID"* ]]; then
-	echo "first exit"
 	exit
 fi
 
 #	If called only the BASEOID, initiate a full run from the top tree level.
 if [ -z ${AROID[10]} ]; then
 	AROID[10]="1"
+	ISWALKING=true
 fi
 
 #	The is the Top level tree of drive statistics.
@@ -74,7 +75,6 @@ if [ ${AROID[10]} == $TREE_DRIVE ]; then
 
 	#   Checks if "hdscache" file's exists and create if not.
 	if [ ! -f "$FPATH/hdscache" ]; then
-		echo "File not found! Creating it..."
 		"$FPATH/HDSentinel" -solid | grep -v "?" > "$FPATH/hdscache";
 	fi
 
@@ -100,16 +100,6 @@ if [ ${AROID[10]} == $TREE_DRIVE ]; then
 			AROID[11]="1"
 		fi
 
-		# # check if its last oid
-		# if [[ ${AROID[12]} -eq ${#drive_health[@]} ]] && [[ ${AROID[11]} -eq 5 ]]; then
-			# AROID[10]="2"
-			# AROID[11]="1"
-			# AROID[12]="1"
-			# echo "hol 1"
-			# echo "$BASEOID.${AROID[10]}.${AROID[11]}.${AROID[12]}"
-			# echo "hol 2"
-		# fi
-
 		#	Increments the OIDs AROID[11]
 		#	${#drive_health[@]} = number of elements
 		if [[ ${AROID[12]} -eq ${#drive_health[@]} ]]; then
@@ -123,10 +113,9 @@ if [ ${AROID[10]} == $TREE_DRIVE ]; then
 		fi
 
 		#	Increments the OIDs (AROID[12])
-		if [ ${AROID[12]} -lt ${#drive_health[@]} ];then
+		if [ ${AROID[12]} -lt ${#drive_health[@]} ]; then
 			((AROID[12]++))
 		fi
-
 	fi
 
 	case ${AROID[11]} in
@@ -161,6 +150,11 @@ if [ ${AROID[10]} == $TREE_DRIVE ]; then
 			exit
 			;;
 	esac
+
+	if [ "$ISWALKING"=true ]; then
+		AROID[10]="2"
+		AROID[13]=""
+	fi
 fi
 
 #	The is the Top level tree of IOStat.
@@ -171,25 +165,19 @@ if [ ${AROID[10]} == $TREE_IOSTAT ]; then
 	fi
 
 	#	Create/Update the iostate cache file.
-	iostat -mxd | grep sd > "$FPATH/iostatcache";
+	if [ ! -f "$FPATH/iostatcache" ]; then
+		iostat -mxd | grep sd > "$FPATH/iostatcache";
+	fi
 
+	#	Checking "iostatcache" files age. The value is represented in seconds.
+	get_iostatcache_age=($(($(date +%s) - $(date +%s -r "$FPATH/iostatcache"))))
 
-	# #   Checks if "iostatcache" file's exists and create if not.
-	# if [ ! -f "$FPATH/iostatcache" ]; then
-		# echo "File not found! Creating it..."
-		# iostat -mxd | grep sd > "$FPATH/iostatcache";
-	# fi
-
-
-	# #	Checking "iostatcache" files age. The value is represented in seconds.
-	# get_hdscache_age=($(($(date +%s) - $(date +%s -r "$FPATH/iostatcache"))))
-
-	# #	Checking the "iostatcache" file if it's older than 12hours. If so, renews it.
-	# #	43200 is 12hours in seconds.
-	# if [ $get_hdscache_age -gt 43200 ]; then
-		# #	cache HDSentinel's output.
-		# "$FPATH/HDSentinel" -solid | grep -v "?" > "$FPATH/iostatcache";
-	# fi
+	#	Checking the "iostatcache" file if it's older than 12hours. If so, renews it.
+	#	1800 is 30mins in seconds.
+	if [ $get_iostatcache_age -gt 1800 ]; then
+		#	cache HDSentinel's output.
+		iostat -mxd | grep sd > "$FPATH/iostatcache";
+	fi
 
 	#	Loads the cached HDS stats from file into an array.
 	readarray iostat < "$FPATH/iostatcache"
@@ -203,7 +191,7 @@ if [ ${AROID[10]} == $TREE_IOSTAT ]; then
 		fi
 
 		#	Increments the OIDs AROID[11]
-		#	${#iostat[@]} = number of elements
+		#	${#drive_health[@]} = number of elements
 		if [[ ${AROID[12]} -eq ${#iostat[@]} ]]; then
 			((AROID[11]++))
 			AROID[12]="0"
@@ -215,16 +203,9 @@ if [ ${AROID[10]} == $TREE_IOSTAT ]; then
 		fi
 
 		#	Increments the OIDs (AROID[12])
-		if [ ${AROID[12]} -lt ${#iostat[@]} ];then
+		if [ ${AROID[12]} -lt ${#iostat[@]} ]; then
 			((AROID[12]++))
 		fi
-
-		# # check if its last oid
-		# if [[ ${AROID[12]} -eq ${#iostat[@]} ]] && [[ ${AROID[11]} -eq 14 ]]; then
-			# AROID[10]="2"
-			# AROID[11]=""
-			# AROID[12]=""
-		# fi
 	fi
 
 	# 14db kell!
@@ -314,6 +295,10 @@ if [ ${AROID[10]} == $TREE_IOSTAT ]; then
 			exit
 			;;
 	esac
+
+	if [ "$ISWALKING"=true ]; then
+		AROID[10]="3"
+	fi
 fi
 
 #	The is the Top level tree of RAID statistics.
@@ -324,10 +309,22 @@ if [ ${AROID[10]} == $TREE_RAID ]; then
 	fi
 
 	#	Create/Update the mdadm cache file.
-	cat /etc/mdadm.conf | awk '{print $2}' > "$FPATH/mdadmcache";
+	if [ ! -f "$FPATH/mdadmcache" ]; then
+		mdadm --detail /dev/md/* | egrep '(dev/md|Fail)' | sed -e 's/Failed Devices//' | tr -s ' '  '\n' | tr -s ':'  '\n' | awk '{printf "%s%s",$0,(NR%2?FS:RS)}' > "$FPATH/mdadmcache";
+	fi
+
+	#	Checking "mdadmcache" files age. The value is represented in seconds.
+	get_mdadmcache_age=($(($(date +%s) - $(date +%s -r "$FPATH/mdadmcache"))))
+
+	#	Checking the "mdadmcache" file if it's older than 12hours. If so, renews it.
+	#	1800 is 30mins in seconds.
+	if [ $get_mdadmcache_age -gt 1800 ]; then
+		#	cache HDSentinel's output.
+		mdadm --detail /dev/md/* | egrep '(dev/md|Fail)' | sed -e 's/Failed Devices//' | tr -s ' '  '\n' | tr -s ':'  '\n' | awk '{printf "%s%s",$0,(NR%2?FS:RS)}' > "$FPATH/mdadmcache";
+	fi
 
 	#	Loads the cached mdadm stats from file into an array.
-	readarray mdadmcache < "$FPATH/iostatcache"
+	readarray mdadmcache < "$FPATH/mdadmcache"
 
 	# check if walk
 	if [[ $COMMAND == "-n" ]]; then
@@ -353,13 +350,6 @@ if [ ${AROID[10]} == $TREE_RAID ]; then
 		if [ ${AROID[12]} -lt ${#mdadmcache[@]} ];then
 			((AROID[12]++))
 		fi
-
-		# # check if its last oid
-		# if [[ ${AROID[12]} -eq ${#mdadmcache[@]} ]] && [[ ${AROID[11]} -eq 14 ]]; then
-			# AROID[10]="2"
-			# AROID[11]=""
-			# AROID[12]=""
-		# fi
 	fi
 
 	case ${AROID[11]} in
@@ -369,11 +359,11 @@ if [ ${AROID[10]} == $TREE_RAID ]; then
 			echo ${mdadmcache[((AROID[12]-1))]} | awk '{print $1}'
 			exit
 			;;
-		$TREE_RAID_HEALTH )	# This is the subtree for RAID health.
+		$TREE_RAID_HEALTH )	# This is the subtree for "Failed devices".
 			echo "$BASEOID.${AROID[10]}.${AROID[11]}.${AROID[12]}"
-			echo "string"
+			echo "integer"
 			echo ${mdadmcache[((AROID[12]-1))]} | awk '{print $2}'
 			exit
 			;;
 	esac
-fi	
+fi
