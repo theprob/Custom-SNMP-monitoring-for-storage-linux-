@@ -1,11 +1,11 @@
 #!/bin/bash
 #	 _______________________________________________________________________________
-#	/	Bash script to check LINUX based SAN/Storage systems' RAID and Disk health.	\
-#	|	Should be used via SNMP.                                                    |
-#	|																				|
-#	|	Created by Béla Tóth			                                            |
-#	|	Released:    2019.01.26.                                         			|
-#	|	Last modify: 2019.02.07.                                   					|
+#	/	Bash script to check LINUX based SAN/Storage systems' RAID and Disk health.		\
+#	|	Should be used via SNMP.                                                    	|
+#	|																																								|
+#	|	Created by Béla Tóth			                                            				|
+#	|	Released:    2019.01.26.                                         							|
+#	|	Last modify: 2019.10.18.                                   										|
 #	\_______________________________________________________________________________/
 #
 # ez kell az snmpd.conf-ba: pass .1.3.6.1.4.1.8073.2.255   /bin/bash /opt/bin/StorageHealthStatus.sh
