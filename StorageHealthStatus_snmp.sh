@@ -1,11 +1,11 @@
 #!/bin/bash
 #	 _______________________________________________________________________________
-#	/	Bash script to check LINUX based SAN/Storage systems' RAID and Disk health.		\
-#	|	Should be used via SNMP.                                                    	|
-#	|																																								|
-#	|	Created by Béla Tóth			                                            				|
-#	|	Released:    2019.01.26.                                         							|
-#	|	Last modify: 2019.10.18.                                   										|
+#	/	Bash script to check LINUX based SAN/Storage systems' RAID and Disk health.	\
+#	|	Should be used via SNMP.                                                    |
+#	|																				|
+#	|	Created by Béla Tóth			                                            |
+#	|	Released:    2019.01.26.                                         			|
+#	|	Last modify: 2019.02.07.                                   					|
 #	\_______________________________________________________________________________/
 #
 # ez kell az snmpd.conf-ba: pass .1.3.6.1.4.1.8073.2.255   /bin/bash /opt/bin/StorageHealthStatus.sh
@@ -52,7 +52,10 @@ TREE_IOSTAT_util="14"	# This is the subtree for %util.
 
 TREE_RAID="3"			# Top level tree for RAID stats.
 TREE_RAID_ID="1"		# This is the subtree for RAID id.
-TREE_RAID_HEALTH="2"	# This is the subtree for health check.
+TREE_RAID_FAILED_DEVICES="2"	# This is the subtree for failed devices in the RAID.
+TREE_RAID_ACTIVE_DEVICES="3"	# This is the subtree for active devices in the RAID.
+TREE_RAID_WOKRING_DEVICES="4"	# This is the subtree for working devices in the RAID.
+TREE_RAID_SPARE_DEVICES="5"	# This is the subtree for spare devices in the RAID.
 
 
 #	Initial check. If the BASEOID is not within the RETURNOID, script running halts.
@@ -164,7 +167,7 @@ if [ ${AROID[10]} == $TREE_IOSTAT ]; then
 		exit
 	fi
 
-	#	Create/Update the iostate cache file.
+	#	Create/Update the iostat cache file.
 	if [ ! -f "$FPATH/iostatcache" ]; then
 		iostat -mxd | grep sd > "$FPATH/iostatcache";
 	fi
@@ -175,11 +178,11 @@ if [ ${AROID[10]} == $TREE_IOSTAT ]; then
 	#	Checking the "iostatcache" file if it's older than 12hours. If so, renews it.
 	#	1800 is 30mins in seconds.
 	if [ $get_iostatcache_age -gt 1800 ]; then
-		#	cache HDSentinel's output.
+		#	cache iostat's output.
 		iostat -mxd | grep sd > "$FPATH/iostatcache";
 	fi
 
-	#	Loads the cached HDS stats from file into an array.
+	#	Loads the cached iostat from file into an array.
 	readarray iostat < "$FPATH/iostatcache"
 
 	# check if walk
@@ -191,7 +194,7 @@ if [ ${AROID[10]} == $TREE_IOSTAT ]; then
 		fi
 
 		#	Increments the OIDs AROID[11]
-		#	${#drive_health[@]} = number of elements
+		#	${#iostat[@]} = number of elements
 		if [[ ${AROID[12]} -eq ${#iostat[@]} ]]; then
 			((AROID[11]++))
 			AROID[12]="0"
@@ -208,7 +211,6 @@ if [ ${AROID[10]} == $TREE_IOSTAT ]; then
 		fi
 	fi
 
-	# 14db kell!
 	case ${AROID[11]} in
 		$TREE_IOSTAT_ID )	# This is the subtree for device id.
 			echo "$BASEOID.${AROID[10]}.${AROID[11]}.${AROID[12]}"
@@ -310,7 +312,9 @@ if [ ${AROID[10]} == $TREE_RAID ]; then
 
 	#	Create/Update the mdadm cache file.
 	if [ ! -f "$FPATH/mdadmcache" ]; then
-		mdadm --detail /dev/md/* | egrep '(dev/md|Fail)' | sed -e 's/Failed Devices//' | tr -s ' '  '\n' | tr -s ':'  '\n' | awk '{printf "%s%s",$0,(NR%2?FS:RS)}' > "$FPATH/mdadmcache";
+		mdadm --detail /dev/md/* | egrep '(dev/md|Active|Working|Failed|Spare)' | \
+			sed -e 's/Active Devices//;s/Working Devices//;s/Failed Devices//;s/Spare Devices//' | \
+			tr -s ' '  '\n' | tr -s ':'  '\n' | awk '{printf "%s%s",$0,(NR%5?FS:RS)}'  > "$FPATH/mdadmcache";
 	fi
 
 	#	Checking "mdadmcache" files age. The value is represented in seconds.
@@ -319,8 +323,10 @@ if [ ${AROID[10]} == $TREE_RAID ]; then
 	#	Checking the "mdadmcache" file if it's older than 12hours. If so, renews it.
 	#	1800 is 30mins in seconds.
 	if [ $get_mdadmcache_age -gt 1800 ]; then
-		#	cache HDSentinel's output.
-		mdadm --detail /dev/md/* | egrep '(dev/md|Fail)' | sed -e 's/Failed Devices//' | tr -s ' '  '\n' | tr -s ':'  '\n' | awk '{printf "%s%s",$0,(NR%2?FS:RS)}' > "$FPATH/mdadmcache";
+		#	cache mdadm's output.
+		mdadm --detail /dev/md/* | egrep '(dev/md|Active|Working|Failed|Spare)' | \
+			sed -e 's/Active Devices//;s/Working Devices//;s/Failed Devices//;s/Spare Devices//' | \
+			tr -s ' '  '\n' | tr -s ':'  '\n' | awk '{printf "%s%s",$0,(NR%5?FS:RS)}'  > "$FPATH/mdadmcache";
 	fi
 
 	#	Loads the cached mdadm stats from file into an array.
@@ -359,10 +365,28 @@ if [ ${AROID[10]} == $TREE_RAID ]; then
 			echo ${mdadmcache[((AROID[12]-1))]} | awk '{print $1}'
 			exit
 			;;
-		$TREE_RAID_HEALTH )	# This is the subtree for "Failed devices".
+		$TREE_RAID_FAILED_DEVICES )	# This is the subtree for "Failed devices".
+			echo "$BASEOID.${AROID[10]}.${AROID[11]}.${AROID[12]}"
+			echo "integer"
+			echo ${mdadmcache[((AROID[12]-1))]} | awk '{print $4}'
+			exit
+			;;
+		$TREE_RAID_ACTIVE_DEVICES )	# This is the subtree for "active devices".
 			echo "$BASEOID.${AROID[10]}.${AROID[11]}.${AROID[12]}"
 			echo "integer"
 			echo ${mdadmcache[((AROID[12]-1))]} | awk '{print $2}'
+			exit
+			;;
+		$TREE_RAID_WOKRING_DEVICES )	# This is the subtree for "working devices".
+			echo "$BASEOID.${AROID[10]}.${AROID[11]}.${AROID[12]}"
+			echo "integer"
+			echo ${mdadmcache[((AROID[12]-1))]} | awk '{print $3}'
+			exit
+			;;
+		$TREE_RAID_SPARE_DEVICES )	# This is the subtree for "spare devices".
+			echo "$BASEOID.${AROID[10]}.${AROID[11]}.${AROID[12]}"
+			echo "integer"
+			echo ${mdadmcache[((AROID[12]-1))]} | awk '{print $5}'
 			exit
 			;;
 	esac
